@@ -1,5 +1,5 @@
 ---
-title: "ViersDSC520FinalProject"
+title: "Predicting Credit Score"
 author: "Sharon Viers"
 date: "February 27, 2025"
 output: html_document
