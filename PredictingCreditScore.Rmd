@@ -1,0 +1,210 @@
+---
+title: "ViersDSC520FinalProject"
+author: "Sharon Viers"
+date: "February 27, 2025"
+output: html_document
+---
+
+##Clean data
+```{r clean_data, include=TRUE, echo=TRUE, message=FALSE, warning=FALSE}
+
+options(repos = c(CRAN = "https://cloud.r-project.org/"))
+
+install.packages(c("tidyverse", "janitor", "caret"))
+library(tidyverse)
+library(janitor)
+library(caret)
+
+#Cleaned credit_score.csv
+file_path <- "C:/Users/sharo/OneDrive/Desktop/Bellevue/Statistics for Data Science/credit_score.csv"
+credit_score <- read_csv(file_path)
+credit_score <- credit_score %>% clean_names()
+colSums(is.na(credit_score))
+credit_score <- credit_score %>%
+mutate_if(is.numeric, ~ ifelse(is.na(.), median(., na.rm = TRUE), .))
+credit_score$cat_gambling <- as.factor(credit_score$cat_gambling)
+credit_score$cat_credit_card <- as.factor(credit_score$cat_credit_card)
+credit_score <- credit_score %>% distinct()
+summary(credit_score)
+
+#Cleaned test.csv
+file_path_test <- "C:/Users/sharo/OneDrive/Desktop/Bellevue/Statistics for Data Science/test.csv"
+test_data <- read_csv(file_path_test)
+test_data <- test_data %>% clean_names()
+colSums(is.na(test_data))
+test_data <- test_data %>%
+mutate_if(is.numeric, ~ ifelse(is.na(.), median(., na.rm = TRUE), .)) %>%
+mutate_if(is.character, ~ ifelse(is.na(.), "Unknown", .))
+test_data$occupation <- as.factor(test_data$occupation)
+test_data$credit_mix <- as.factor(test_data$credit_mix)
+test_data <- test_data %>% distinct()
+summary(test_data)
+
+#Cleaned cleaned_creditscore_dataset.csv
+file_path_cleaned <- "C:/Users/sharo/OneDrive/Desktop/Bellevue/Statistics for Data Science/cleaned_creditscore_dataset.csv"
+cleaned_credit_data <- read_csv(file_path_cleaned)
+cleaned_credit_data <- cleaned_credit_data %>% clean_names()
+colSums(is.na(cleaned_credit_data))
+cleaned_credit_data <- cleaned_credit_data %>%
+mutate_if(is.numeric, ~ ifelse(is.na(.), median(., na.rm = TRUE), .)) %>%
+mutate_if(is.character, ~ ifelse(is.na(.), "Unknown", .))
+cleaned_credit_data$occupation <- as.factor(cleaned_credit_data$occupation)
+cleaned_credit_data$credit_mix <- as.factor(cleaned_credit_data$credit_mix)
+cleaned_credit_data <- cleaned_credit_data %>% distinct()
+summary(cleaned_credit_data)
+```
+
+##Bar plot of credit scores
+```{r bar_plot_credit_scores, include=TRUE, echo=TRUE, message=FALSE, warning=FALSE}
+
+library(tidyverse)
+library(janitor)
+
+file_path <- "C:/Users/sharo/OneDrive/Desktop/Bellevue/Statistics for Data Science/credit_score.csv"
+credit_score <- read_csv(file_path) %>% clean_names()
+
+sum(is.na(credit_score$credit_score))
+credit_score <- credit_score %>% filter(!is.na(credit_score))
+
+credit_score <- credit_score %>%
+  mutate(credit_score_category = factor(
+    case_when(
+      credit_score < 500 ~ "Poor",
+      credit_score >= 500 & credit_score < 650 ~ "Fair",
+      credit_score >= 650 ~ "Good"),
+    levels = c("Poor", "Fair", "Good")))
+
+ggplot(credit_score, aes(x = credit_score_category, fill = credit_score_category)) +
+  geom_bar() +
+  labs(title = "Distribution of Credit Score Categories",
+       x = "Credit Score Category",
+       y = "Count") +
+  theme_minimal()
+```
+
+##Scatter plot of debt-to-income and credit score.
+```{r scatter_plot_debt_income, include=TRUE, echo=TRUE, message=FALSE, warning=FALSE}
+
+library(tidyverse)
+library(janitor)
+
+file_path <- "C:/Users/sharo/OneDrive/Desktop/Bellevue/Statistics for Data Science/credit_score.csv"
+credit_score_data <- read_csv(file_path)
+
+ggplot(credit_score_data, aes(x = R_DEBT_INCOME, y = CREDIT_SCORE)) +
+  geom_point(alpha = 0.5, color = "blue") +
+  labs(title = "Debt-to-Income Ratio vs. Credit Score",
+       x = "Debt-to-Income Ratio (R_DEBT_INCOME)",
+       y = "Credit Score") +
+  theme_minimal()
+```
+
+#Bar chart of relationship between employment status and credit score.
+```{r bar_chart_employment_credit, include=TRUE, echo=TRUE, message=FALSE, warning=FALSE}
+
+library(tidyverse)
+library(janitor)
+
+file_path <- "C:/Users/sharo/OneDrive/Desktop/Bellevue/Statistics for Data Science/cleaned_creditscore_dataset.csv"
+credit_score_data <- read_csv(file_path) %>% clean_names()
+
+if (!"occupation" %in% colnames(credit_score_data)) {
+  stop("Column 'occupation' not found. Check dataset column names.")}
+
+if (!"credit_score" %in% colnames(credit_score_data)) {
+  stop("Column 'credit_score' not found. Check dataset column names.")}
+
+credit_score_data <- credit_score_data %>%
+  mutate(credit_score = factor(credit_score, levels = c("Poor", "Fair", "Good")))
+
+ggplot(credit_score_data, aes(x = occupation, fill = credit_score)) +
+  geom_bar(position = "dodge") +
+  labs(title = "Credit Score Category by Employment Status",
+       x = "Employment Status (Occupation)",
+       y = "Count",
+       fill = "Credit Score Category") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))  # Rotate x-axis labels for readability
+```
+
+##Correlation heatmap of annual income, debt, credit utiliazation, and credit inquiries.
+```{r correlation_heatmap, include=TRUE, echo=TRUE, message=FALSE, warning=FALSE}
+
+library(tidyverse)
+library(janitor)
+library(corrplot)
+
+file_path <- "C:/Users/sharo/OneDrive/Desktop/Bellevue/Statistics for Data Science/cleaned_creditscore_dataset.csv"
+credit_score_data <- read_csv(file_path) %>% clean_names()
+
+possible_cols <- c("annual_income", "debt", "outstanding_debt", "credit_utilization_ratio", "num_credit_inquiries")
+
+existing_cols <- possible_cols[possible_cols %in% colnames(credit_score_data)]
+
+if (length(existing_cols) == 0) {
+  stop("No valid columns found for correlation matrix. Check dataset column names.")}
+
+correlation_vars <- credit_score_data %>% select(all_of(existing_cols))
+
+correlation_matrix <- cor(correlation_vars, use = "complete.obs")
+
+corrplot(correlation_matrix, method = "color", type = "upper", tl.col = "black", tl.cex = 0.8, col = colorRampPalette(c("red", "white", "blue"))(200))
+```
+
+```{r knn_model, include=TRUE, echo=TRUE, message=FALSE, warning=FALSE}
+
+library(tidyverse)
+library(janitor)
+library(caret)
+library(class)  
+
+file_path <- "C:/Users/sharo/OneDrive/Desktop/Bellevue/Statistics for Data Science/credit_score.csv"
+credit_score <- read_csv(file_path)
+
+credit_score <- credit_score %>% clean_names()
+
+credit_score <- credit_score %>%
+  mutate(across(where(is.character), as.factor))
+
+credit_score <- credit_score %>%
+  mutate(across(where(is.factor), as.integer))
+
+credit_score <- credit_score %>%
+  mutate(across(where(is.numeric), ~ as.numeric(ifelse(is.na(.), median(., na.rm = TRUE), .))))
+
+credit_score <- credit_score %>%
+  mutate(credit_score_category = factor(
+    case_when(
+      credit_score < 500 ~ "Poor",
+      credit_score >= 500 & credit_score < 650 ~ "Fair",
+      credit_score >= 650 ~ "Good"),
+    levels = c("Poor", "Fair", "Good")))
+
+credit_score <- credit_score %>% select(-credit_score)
+
+set.seed(123)
+train_index <- createDataPartition(credit_score$credit_score_category, p = 0.8, list = FALSE)
+train_data <- credit_score[train_index, ]
+test_data <- credit_score[-train_index, ]
+
+train_x <- train_data %>% select(-credit_score_category)
+test_x <- test_data %>% select(-credit_score_category)
+
+train_y <- train_data$credit_score_category
+test_y <- test_data$credit_score_category
+
+train_x <- as.data.frame(scale(train_x))
+test_x <- as.data.frame(scale(test_x))
+
+k_value <- sqrt(nrow(train_x))  
+k_value <- round(k_value)  
+
+knn_predictions <- knn(train = train_x, test = test_x, cl = train_y, k = k_value)
+
+conf_matrix_knn <- confusionMatrix(knn_predictions, test_y)
+print("Confusion Matrix for KNN:")
+print(conf_matrix_knn)
+
+
+print(paste("KNN Model Accuracy:", round(conf_matrix_knn$overall["Accuracy"] * 100, 2), "%"))
+```
